@@ -1,6 +1,7 @@
 // src/components/TeacherScreen.jsx
 import { useRoomContext } from "../context/RoomContext";
 import { useEffect } from "react";
+import { supabase } from "../supabase/client";
 
 export default function TeacherScreen() {
   const {
@@ -11,268 +12,345 @@ export default function TeacherScreen() {
     students,
     timer,
     setTimer,
-    setCurrentRule,   // ⭐ Ekledik (reset için gerekli)
-    broadcastTimeUp,  // ⭐ Öğrencilere doğru kartı yayınlamak için
+    setCurrentRule,
   } = useRoomContext();
 
   // =============================
-  // 🧠 SÜRE SAYACI
+  // ⏱ SÜRE SAYACI VE YAYIN
   // =============================
   useEffect(() => {
     let t;
+
     if (currentRule && timer > 0) {
       t = setTimeout(() => setTimer(timer - 1), 1000);
     }
 
-    // ⭐ SÜRE BİTTİ → doğruyu yayınla + reset yap
     if (currentRule && timer === 0) {
-      // Öğrencilere doğru cevap yayınla
-      broadcastTimeUp(currentRule.dogruKart);
+      if (!supabase || !roomCode) {
+        console.error("Supabase veya roomCode eksik!");
+        setCurrentRule(null);
+        setTimer(60);
+        return;
+      }
 
-      // Öğretmen ekranını sıfırla
+      const dogruCevap = {
+        metin: currentRule.ornek || currentRule.dogruOrnek || currentRule.kural,
+        kart: currentRule.kartlar?.find((k) => k.dogruMu),
+      };
+
+      supabase
+        .channel(roomCode)
+        .httpSend({
+          type: "broadcast",
+          event: "sure_bitti",
+          payload: dogruCevap,
+        });
+
       setTimeout(() => {
-        setCurrentRule(null);  // yeni kural çekilebilir
-        setTimer(60);          // yeni tur süresi
+        setCurrentRule(null);
+        setTimer(60);
       }, 500);
     }
 
     return () => clearTimeout(t);
-  }, [timer, currentRule]);
+  }, [timer, currentRule, roomCode, setTimer, setCurrentRule]);
 
-
-  // =============================
-  // VERİ YOKSA
-  // =============================
   if (!topicData) {
     return <div style={{ padding: 40 }}>Konu yüklenmedi.</div>;
   }
 
-
   // =============================
-  // 🎯 RASTGELE KURAL SEÇ
+  // 🎯 RASTGELE KURAL
   // =============================
   const rastgeleKuralSec = () => {
     const liste = topicData.liste;
-    const randomIndex = Math.floor(Math.random() * liste.length);
-    const secilen = liste[randomIndex];
+    const secilen = liste[Math.floor(Math.random() * liste.length)];
 
-    // Kartlara doğru etiketi eklenmiş halde gelir
     chooseRule(secilen);
-    setTimer(60);  // Yeni tur başlasın
+    setTimer(60);
   };
 
-
   // =============================
+  // ⭐ ÖĞRENCİLERİ SIRALA
+  // =============================
+  const siraliStudents = [...students].sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    if (b.correct !== a.correct) return b.correct - a.correct;
+    if (a.wrong !== b.wrong) return a.wrong - b.wrong;
+    return a.name.localeCompare(b.name);
+  });
+
+  const birinci = siraliStudents[0]?.id;
+  const ikinci = siraliStudents[1]?.id;
+  const ucuncu = siraliStudents[2]?.id;
+
+  // =======================================================
   // RENDER
-  // =============================
+  // =======================================================
   return (
-    <div style={kapsayici}>
-
-      {/* ÜST BAŞLIK */}
+    <div style={page}>
       <div style={header}>
         <h2 style={title}>👩‍🏫 Öğretmen Paneli</h2>
       </div>
 
-      {/* ODA + BUTON */}
-      <div style={odaKutu}>
+      <div style={roomCard}>
         <div>
-          <div style={odaLabel}>Oda Kodu</div>
-          <div style={odaKod}>{roomCode}</div>
+          <div style={roomLabel}>Oda Kodu</div>
+          <div style={roomCodeStyle}>{roomCode}</div>
         </div>
 
-        {/* ⭐ Yeni kural seçilebilir */}
         {!currentRule && (
-          <button onClick={rastgeleKuralSec} style={kuralButon}>
+          <button style={ruleBtn} onClick={rastgeleKuralSec}>
             🎯 Yeni Kural Başlat
           </button>
         )}
       </div>
 
+      {currentRule && (
+        <div style={timerBarContainer}>
+          <div
+            style={{
+              ...timerBarFill,
+              width: `${(timer / 60) * 100}%`,
+            }}
+          />
+        </div>
+      )}
 
-      {/* SÜRE + KURAL */}
       {currentRule && (
         <>
-          <div style={sureKutu}>
-            <span style={sureBaslik}>⏱ Kalan Süre:</span>
-            <span style={sureDeger}>{timer} sn</span>
+          <div style={timerCard}>
+            ⏱ <b>{timer}</b> saniye
           </div>
 
-          <div style={kuralCard}>
-            <h3 style={kuralBaslik}>📌 Kural</h3>
-            <p style={kuralMetin}>{currentRule.kural}</p>
+          <div style={ruleCard}>
+            <h3 style={ruleHeader}>📌 Kural</h3>
+            <p style={ruleText}>{currentRule.kural}</p>
           </div>
         </>
       )}
 
-
       {/* ÖĞRENCİ TABLOSU */}
-      <h3 style={listBaslik}>👥 Öğrenci Durumu</h3>
+      <h3 style={studentsHeader}>👥 Öğrenciler</h3>
 
-      <div style={tablo}>
-        <div style={tabloHeader}>
-          <div>Ad</div>
+      <div style={table}>
+        <div style={tableHead}>
+          <div>Öğrenci</div>
           <div>Can</div>
           <div>D/Y</div>
           <div>Puan</div>
         </div>
 
-        {students.map((s) => (
-          <div key={s.id} style={tabloSatir}>
-            <div style={ogrAd}>{s.name}</div>
+        {/* ⭐ SIRALANMIŞ ÖĞRENCİLER */}
+        {siraliStudents.map((s) => {
+          const rank =
+            s.id === birinci ? 1 : s.id === ikinci ? 2 : s.id === ucuncu ? 3 : null;
 
-            <div>
-              {Array.from({ length: s.lives }).map((_, i) => (
-                <span key={i} style={{ color: "#ef4444" }}>❤️</span>
-              ))}
+          return (
+            <div
+              key={s.id}
+              style={{
+                ...tableRow,
+                background:
+                  rank === 1
+                    ? "#fff7c2"
+                    : rank === 2
+                    ? "#f4f4f7"
+                    : rank === 3
+                    ? "#fde6c8"
+                    : "white",
+                border:
+                  rank === 1
+                    ? "2px solid #facc15"
+                    : rank === 2
+                    ? "2px solid #cbd5e1"
+                    : rank === 3
+                    ? "2px solid #d97706"
+                    : "1px solid #e2e8f0",
+                position: "relative",
+              }}
+            >
+              {/* 🥇 🥈 🥉 Madalya */}
+              {rank && (
+                <div
+                  style={{
+                    position: "absolute",
+                    left: "-38px",
+                    fontSize: "2.4rem",
+                  }}
+                >
+                  {rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉"}
+                </div>
+              )}
+
+              <div style={nameCell}>
+                <span style={avatar}>{s.name[0].toUpperCase()}</span>
+                {s.name}
+              </div>
+
+              <div>
+                {Array.from({ length: s.lives }).map((_, i) => (
+                  <span key={i} style={{ color: "#ef4444" }}>
+                    ❤️
+                  </span>
+                ))}
+              </div>
+
+              <div>
+                ✔ {s.correct} / ❌ {s.wrong}
+              </div>
+
+              <div style={scoreBadge}>{s.score} P</div>
             </div>
-
-            <div>
-              ✔ {s.correct} / ❌ {s.wrong}
-            </div>
-
-            <div style={puan}>{s.score} P</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
-
     </div>
   );
 }
 
-
-// ------------------------
-// STYLES (MODERN DASHBOARD)
-// ------------------------
-
-const kapsayici = {
-  padding: "20px",
+// =====================================================
+// 🎨 TASARIM (STYLES)
+// =====================================================
+const page = {
+  padding: "24px",
   fontFamily: "Inter, sans-serif",
-  maxWidth: "880px",
+  maxWidth: "900px",
   margin: "auto",
-  color: "#1e293b",
 };
 
-const header = {
-  marginBottom: "20px",
-};
+const header = { marginBottom: "12px" };
 
 const title = {
-  fontSize: "1.9rem",
-  fontWeight: "700",
-  color: "#0f172a",
+  fontSize: "2rem",
+  fontWeight: 800,
 };
 
-const odaKutu = {
-  background: "#f8fafc",
+const roomCard = {
+  background: "white",
   border: "1px solid #e2e8f0",
   padding: "18px",
-  borderRadius: "14px",
+  borderRadius: "16px",
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
   marginBottom: "20px",
 };
 
-const odaLabel = {
-  fontSize: "0.9rem",
-  color: "#64748b",
-};
+const roomLabel = { fontSize: "0.9rem", color: "#64748b" };
 
-const odaKod = {
-  fontSize: "1.5rem",
-  fontWeight: "700",
+const roomCodeStyle = {
+  fontSize: "1.8rem",
+  fontWeight: 700,
   color: "#1e3a8a",
+  letterSpacing: "2px",
 };
 
-const kuralButon = {
+const ruleBtn = {
   padding: "12px 20px",
-  background: "#1e3a8a",
+  background: "linear-gradient(135deg, #4f46e5, #6366f1)",
   color: "white",
   border: "none",
   borderRadius: "10px",
   cursor: "pointer",
   fontSize: "1rem",
-  fontWeight: "600",
+  fontWeight: 600,
 };
 
-const sureKutu = {
-  background: "#eef2ff",
+const timerBarContainer = {
+  width: "100%",
+  height: "12px",
+  background: "#e2e8f0",
+  borderRadius: 10,
+  overflow: "hidden",
+  marginBottom: 12,
+};
+
+const timerBarFill = {
+  height: "100%",
+  background: "linear-gradient(90deg, #10b981, #22d3ee)",
+  transition: "width 0.4s linear",
+};
+
+const timerCard = {
+  background: "#ecfdf5",
+  border: "1px solid #bbf7d0",
   padding: "14px",
-  borderRadius: "12px",
-  border: "1px solid #c7d2fe",
-  marginBottom: "20px",
   fontSize: "1.2rem",
-  display: "flex",
-  justifyContent: "space-between",
+  borderRadius: "12px",
+  marginBottom: "16px",
 };
 
-const sureBaslik = {
-  fontWeight: "600",
-  color: "#4338ca",
-};
-
-const sureDeger = {
-  fontWeight: "700",
-  color: "#1e40af",
-};
-
-const kuralCard = {
+const ruleCard = {
   background: "white",
   border: "1px solid #e2e8f0",
-  padding: "18px",
-  borderRadius: "14px",
+  padding: "20px",
+  borderRadius: "16px",
   marginBottom: "24px",
 };
 
-const kuralBaslik = {
+const ruleHeader = {
   marginBottom: "8px",
-  fontSize: "1.1rem",
-  fontWeight: "700",
+  fontSize: "1.2rem",
+  fontWeight: 700,
 };
 
-const kuralMetin = {
-  fontSize: "1rem",
-  lineHeight: 1.5,
+const ruleText = { fontSize: "1.05rem", lineHeight: 1.6 };
+
+const studentsHeader = {
+  fontSize: "1.4rem",
+  fontWeight: 800,
+  marginBottom: 12,
 };
 
-const listBaslik = {
-  fontSize: "1.35rem",
-  fontWeight: "700",
-  marginBottom: "12px",
-};
-
-const tablo = {
+const table = {
   width: "100%",
   display: "flex",
   flexDirection: "column",
-  gap: "10px",
+  gap: 10,
 };
 
-const tabloHeader = {
+const tableHead = {
   display: "grid",
   gridTemplateColumns: "2fr 1fr 1fr 1fr",
-  background: "#e2e8f0",
-  padding: "10px",
+  padding: "12px",
+  background: "#f1f5f9",
   borderRadius: "10px",
-  fontWeight: "600",
+  fontWeight: 600,
 };
 
-const tabloSatir = {
+const tableRow = {
   display: "grid",
   gridTemplateColumns: "2fr 1fr 1fr 1fr",
-  background: "#f8fafc",
-  border: "1px solid #e2e8f0",
-  padding: "12px 10px",
-  borderRadius: "10px",
+  padding: "14px",
+  background: "white",
+  borderRadius: "12px",
   alignItems: "center",
 };
 
-const ogrAd = { fontWeight: "600" };
+const nameCell = {
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+  fontWeight: 600,
+};
 
-const puan = {
+const avatar = {
+  width: "32px",
+  height: "32px",
+  background: "#c7d2fe",
+  color: "#312e81",
+  borderRadius: "50%",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontWeight: 700,
+};
+
+const scoreBadge = {
   background: "#dbeafe",
-  padding: "4px 10px",
-  borderRadius: "6px",
-  fontWeight: "700",
+  padding: "4px 12px",
+  borderRadius: "8px",
+  fontWeight: 700,
   textAlign: "center",
 };

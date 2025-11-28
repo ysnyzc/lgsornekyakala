@@ -3,7 +3,13 @@ import { useRoomContext } from "../context/RoomContext";
 import { veriSetleri } from "../data/veriSetleri";
 
 export default function TopicSelect() {
-  const { chooseTopic } = useRoomContext();
+  const { chooseTopic, gradeLevel } = useRoomContext();
+
+  const emptyMessage = (
+    <div style={{ marginTop: 20, fontSize: "1.2rem", color: "#555" }}>
+      Bu sınıf için konular yakında eklenecek.
+    </div>
+  );
 
   return (
     <div
@@ -18,15 +24,19 @@ export default function TopicSelect() {
         Konu Seçin
       </h2>
 
-      {Object.keys(veriSetleri).map((key) => (
-        <button
-          key={key}
-          onClick={() => chooseTopic(key, veriSetleri[key])}  // ✔ DOĞRU KULLANIM
-          style={buttonStyle}
-        >
-          {veriSetleri[key].ad}
-        </button>
-      ))}
+      {/* Sınıf içerik kontrolü */}
+      {gradeLevel !== 8 && emptyMessage}
+
+      {gradeLevel === 8 &&
+        Object.keys(veriSetleri).map((key) => (
+          <button
+            key={key}
+            onClick={() => chooseTopic(key, veriSetleri[key])}
+            style={buttonStyle}
+          >
+            {veriSetleri[key].ad}
+          </button>
+        ))}
     </div>
   );
 }

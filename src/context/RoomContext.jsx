@@ -1,4 +1,4 @@
-// src/context/RoomContext.jsx
+// src/context/RoomContext.js
 import { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "../supabase/client";
 
@@ -8,10 +8,25 @@ export const useRoomContext = () => useContext(RoomContext);
 export const RoomProvider = ({ children }) => {
 
   // ----------------------------------------------------------
+  // PUAN HESAPLAMA FONKSİYONU
+  // ----------------------------------------------------------
+  const calculateScore = (timeLeft) => {
+    if (timeLeft >= 51) return 10;
+    if (timeLeft >= 41) return 9;
+    if (timeLeft >= 31) return 8;
+    if (timeLeft >= 21) return 7;
+    if (timeLeft >= 11) return 6;
+    if (timeLeft >= 1) return 5;
+    return 0;
+  };
+
+  // ----------------------------------------------------------
   // STATE YAPISI
   // ----------------------------------------------------------
   const [role, setRole] = useState(null);
+  const [gradeLevel, setGradeLevel] = useState(null);
   const [roomCode, setRoomCode] = useState(null);
+
   const [topicKey, setTopicKey] = useState(null);
   const [topicData, setTopicData] = useState(null);
 
@@ -20,15 +35,12 @@ export const RoomProvider = ({ children }) => {
   const [students, setStudents] = useState([]);
   const [studentName, setStudentName] = useState(null);
 
-  const [timer, setTimer] = useState(60);
+  const [timer, setTimer] = useState(60); // Öğretmen sayacı
 
-  // ----------------------------------------------------------
-  // 1) ROL SEÇ
   // ----------------------------------------------------------
   const chooseRole = (r) => setRole(r);
+  const chooseGrade = (level) => setGradeLevel(level);
 
-  // ----------------------------------------------------------
-  // 2) KONUYU SEÇ → ODA OLUŞSUN
   // ----------------------------------------------------------
   const chooseTopic = (key, data) => {
     setTopicKey(key);
@@ -41,7 +53,7 @@ export const RoomProvider = ({ children }) => {
   };
 
   // ----------------------------------------------------------
-  // 3) ÖĞRENCİ ODAYA KATILIR
+  // ÖĞRENCİ GİRİŞİ
   // ----------------------------------------------------------
   const joinRoom = async (oda, name) => {
     setRoomCode(oda);
@@ -68,7 +80,7 @@ export const RoomProvider = ({ children }) => {
   };
 
   // ----------------------------------------------------------
-  // 4) KURAL SEÇ (ÖĞRETMEN)
+  // KURAL SEÇ – TUR BAŞLAT
   // ----------------------------------------------------------
   const chooseRule = async (ruleItem) => {
     const hazir = {
@@ -81,15 +93,13 @@ export const RoomProvider = ({ children }) => {
     setCurrentRule(hazir);
     setTimer(60);
 
-    // Her öğrenciye yeni attempts tanımla
     setStudents((prev) =>
       prev.map((s) => ({
         ...s,
-        attempts: 2,
+        attempts: 2,  // yeni tur → attempts reset
       }))
     );
 
-    // öğrencilere gönder
     await supabase.channel(roomCode).send({
       type: "broadcast",
       event: "kural_geldi",
@@ -98,7 +108,7 @@ export const RoomProvider = ({ children }) => {
   };
 
   // ----------------------------------------------------------
-  // 5) 16 KART ÜRET
+  // KART ÜRET
   // ----------------------------------------------------------
   const generateCards = (correctSentence, allRules) => {
     const yanlislar = allRules
@@ -116,44 +126,37 @@ export const RoomProvider = ({ children }) => {
     };
 
     const secilenYanlis = yanlislar.sort(() => Math.random() - 0.5).slice(0, 15);
-
     return [...secilenYanlis, dogru].sort(() => Math.random() - 0.5);
   };
 
   // ----------------------------------------------------------
-  // 6) ÖĞRENCİ CEVAP GÖNDERİR
+  // ÖĞRENCİ CEVAP GÖNDERİR (timeLeft parametreli)
   // ----------------------------------------------------------
-  const sendAnswer = async (kart) => {
+  const sendAnswer = async (kart, timeLeft) => {
     if (role !== "student") return;
 
     await supabase.channel(roomCode).send({
       type: "broadcast",
       event: "cevap",
-      payload: { studentName, kart, timeLeft: timer },
+      payload: { studentName, kart, timeLeft },
     });
   };
 
   // ----------------------------------------------------------
-  // 7) ÖĞRETMEN CEVABI ALIR → PUAN & CAN
+  // PUANLAMA + CANLI SIRALAMA
   // ----------------------------------------------------------
   const handleIncomingAnswer = (payload) => {
     const { studentName, kart, timeLeft } = payload;
 
-    setStudents((prev) =>
-      prev.map((s) => {
+    setStudents((prev) => {
+      let updated = prev.map((s) => {
         if (s.name !== studentName) return s;
         if (s.lives <= 0) return s;
         if (s.attempts <= 0) return s;
 
-        // -------------------------------
-        // ⭐ DOĞRU CEVAP → PUAN HESABI
-        //   her 10 saniyede 1 puan düşer
-        // -------------------------------
+        // DOĞRU CEVAP
         if (kart.dogruMu) {
-          let puan = Math.ceil(timeLeft / 10); // ör: 43 sn → ceil(4.3)=5 puan
-
-          if (puan > 10) puan = 10;
-          if (puan < 1) puan = 1;
+          const puan = calculateScore(timeLeft);
 
           return {
             ...s,
@@ -163,21 +166,36 @@ export const RoomProvider = ({ children }) => {
           };
         }
 
-        // -------------------------------
-        // ❌ YANLIŞ CEVAP
-        // -------------------------------
+        // YANLIŞ CEVAP
         return {
           ...s,
           wrong: s.wrong + 1,
           lives: s.lives - 1,
           attempts: s.attempts - 1,
         };
-      })
-    );
+      });
+
+      // ⭐ CANLI LİDERLİK TABLOSU — ANLIK SIRALAMA
+      updated = updated.sort((a, b) => {
+        // 1) Puan
+        if (b.score !== a.score) return b.score - a.score;
+
+        // 2) Doğru sayısı
+        if (b.correct !== a.correct) return b.correct - a.correct;
+
+        // 3) Yanlış sayısı (az olan önde)
+        if (a.wrong !== b.wrong) return a.wrong - b.wrong;
+
+        // 4) İsim
+        return a.name.localeCompare(b.name);
+      });
+
+      return updated;
+    });
   };
 
   // ----------------------------------------------------------
-  // 8) SÜRE BİTİNCE DOĞRU KARTI HERKESE GÖNDER
+  // SÜRE BİTİNCE DOĞRUYU YAYINLA
   // ----------------------------------------------------------
   const broadcastTimeUp = async () => {
     if (!currentRule) return;
@@ -192,47 +210,44 @@ export const RoomProvider = ({ children }) => {
   };
 
   // ----------------------------------------------------------
-  // 9) BROADCAST KANALI
+  // REALTIME KANAL
   // ----------------------------------------------------------
   useEffect(() => {
     if (!roomCode) return;
 
     const channel = supabase.channel(roomCode);
 
-    // Kural geldi
     channel.on("broadcast", { event: "kural_geldi" }, (msg) => {
       setCurrentRule(msg.payload);
       setTimer(60);
+
+      // Yeni kural geldiğinde de liste sırası korunur
+      setStudents((prev) =>
+        [...prev].sort((a, b) => b.score - a.score)
+      );
     });
 
-    // Öğrenci katıldı
     channel.on("broadcast", { event: "ogrenci_katildi" }, (msg) => {
       if (role === "teacher") {
         setStudents((prev) => [...prev, msg.payload]);
       }
     });
 
-    // Cevap geldi
     channel.on("broadcast", { event: "cevap" }, (msg) => {
       if (role === "teacher") handleIncomingAnswer(msg.payload);
-    });
-
-    // Süre bitti (öğrenci tarafında otomatik doğruyu seçer)
-    channel.on("broadcast", { event: "sure_bitti" }, () => {
-      /* öğrenciler kendi ekranında işliyor */
     });
 
     channel.subscribe();
   }, [roomCode, role]);
 
   // ----------------------------------------------------------
-  // SAĞLANAN DEĞERLER
-  // ----------------------------------------------------------
   return (
     <RoomContext.Provider
       value={{
         role,
         chooseRole,
+        gradeLevel,
+        chooseGrade,
         roomCode,
         topicKey,
         topicData,

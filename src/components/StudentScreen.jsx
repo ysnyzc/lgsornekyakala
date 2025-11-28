@@ -1,8 +1,8 @@
-// src/components/StudentScreen.jsx
+// src/components/StudentScreen.js
 import { useState, useEffect, useRef } from "react";
 import { useRoomContext } from "../context/RoomContext";
 import { supabase } from "../supabase/client";
-import MiniGame from "./MiniGame";  // 🎮 MINI GAME EKLENDİ
+import MiniGame from "./MiniGame";
 
 export default function StudentScreen() {
   const {
@@ -23,9 +23,14 @@ export default function StudentScreen() {
   const [attemptsLeft, setAttemptsLeft] = useState(2);
   const [lives, setLives] = useState(6);
 
-  // ============================
-  // 🎧 SES
-  // ============================
+  const [shuffledCards, setShuffledCards] = useState([]);
+
+  // 🎮 MINI GAME
+  const [miniGame, setMiniGame] = useState(null); // ⭐ EKLENDİ
+
+  const shuffleList = (array) => [...array].sort(() => Math.random() - 0.5);
+
+  // SES
   const dogruSes = useRef(null);
   const yanlisSes = useRef(null);
 
@@ -44,48 +49,58 @@ export default function StudentScreen() {
     document.addEventListener("click", unlockAudio);
   }, []);
 
-  // ============================
-  // RESET KURAL
-  // ============================
+  // Yeni kural → Reset
   useEffect(() => {
     if (currentRule) {
       setSelectedCard(null);
       setHasAnswered(false);
-      setTimeLeft(60);
       setAttemptsLeft(2);
+      setTimeLeft(60);
+
+      setShuffledCards(shuffleList(currentRule.kartlar));
+
+      setMiniGame(null); // ⭐ Öğretmen kural başlatınca mini oyun kapanır
     }
   }, [currentRule]);
 
-  // ============================
-  // ⏱ Sayaç
-  // ============================
+  // TIMER
   useEffect(() => {
     if (!currentRule) return;
-    if (timeLeft <= 0) return;
 
-    const t = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
-    return () => clearTimeout(t);
-  }, [timeLeft, currentRule]);
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 0) return 0;
+        return prev - 1;
+      });
+    }, 1000);
 
-  // ============================
-  // 🔥 süre bitti → öğretmen doğruyu yayınlar
-  // ============================
+    return () => clearInterval(interval);
+  }, [currentRule]);
+
+  // Süre bitti → Doğru cevabı göster
   useEffect(() => {
     if (!roomCode) return;
 
     const channel = supabase.channel(roomCode);
+
     channel.on("broadcast", { event: "sure_bitti" }, (msg) => {
       const dogruKart = msg.payload;
+
       setSelectedCard(dogruKart);
       setHasAnswered(true);
+
+      setShuffledCards((prev) =>
+        prev.map((c) => (c.id === dogruKart.id ? dogruKart : c))
+      );
     });
 
     channel.subscribe();
+    return () => channel.unsubscribe();
   }, [roomCode]);
 
-  // ==================================
+  // ================================
   // GİRİŞ EKRANI
-  // ==================================
+  // ================================
   if (!studentName || !roomCode) {
     return (
       <div style={girisKapsayici}>
@@ -118,9 +133,9 @@ export default function StudentScreen() {
     );
   }
 
-  // ==================================
-  // BEKLEME — 🎮 MINI GAME EKLENMİŞ HALİ
-  // ==================================
+  // ================================
+  // BEKLEME EKRANI
+  // ================================
   if (!currentRule) {
     return (
       <div style={beklemeEkrani}>
@@ -128,24 +143,26 @@ export default function StudentScreen() {
         <div>Oda: {roomCode}</div>
         <div>Adınız: {studentName}</div>
 
-        {/* 🎮 MİNİ OYUN */}
+        {/* ⭐ MINI GAME MENU + GAME */}
         <div style={{ marginTop: 20 }}>
-          <MiniGame />
+          <MiniGame currentGame={miniGame} onSelect={setMiniGame} />
         </div>
       </div>
     );
   }
 
-  // ==================================
+  // ================================
   // KART SEÇME
-  // ==================================
+  // ================================
   const kartSec = (kart) => {
     if (lives <= 0) return;
     if (attemptsLeft <= 0) return;
     if (hasAnswered) return;
 
     setSelectedCard(kart);
-    sendAnswer(kart);
+
+    // ⭐ gerçekten timeLeft'i gönderir
+    sendAnswer(kart, timeLeft);
 
     if (kart.dogruMu) {
       dogruSes.current?.play();
@@ -154,15 +171,12 @@ export default function StudentScreen() {
     }
 
     yanlisSes.current?.play();
-    setAttemptsLeft(attemptsLeft - 1);
-    setLives(lives - 1);
+    setAttemptsLeft((x) => x - 1);
+    setLives((x) => x - 1);
 
     if (attemptsLeft - 1 <= 0) setHasAnswered(true);
   };
 
-  // ==================================
-  // PROGRESS %
-  // ==================================
   const progressPercent = (timeLeft / 60) * 100;
 
   return (
@@ -170,19 +184,12 @@ export default function StudentScreen() {
       <h2 style={baslik}>🎯 Kural</h2>
       <div style={kuralBox}>{currentRule.kural}</div>
 
-      {/* Progress Bar */}
       <div style={progressBarContainer}>
-        <div
-          style={{
-            ...progressBarFill,
-            width: `${progressPercent}%`,
-          }}
-        />
+        <div style={{ ...progressBarFill, width: `${progressPercent}%` }} />
       </div>
 
-      <div style={sayaç}>⏱ {timeLeft} sn</div>
+      <div style={sayac}>⏱ {timeLeft} sn</div>
 
-      {/* Kalpler */}
       <div style={kalpKutu}>
         {Array.from({ length: lives }).map((_, i) => (
           <span key={i} style={kalp}>❤️</span>
@@ -191,9 +198,8 @@ export default function StudentScreen() {
 
       <div style={hakText}>Kalan Cevap Hakkı: {attemptsLeft}</div>
 
-      {/* Kartlar */}
       <div style={kartGrid}>
-        {currentRule.kartlar.map((kart) => {
+        {shuffledCards.map((kart) => {
           const disabled = attemptsLeft <= 0 || lives <= 0;
           const isSelected = selectedCard?.id === kart.id;
 
@@ -213,7 +219,6 @@ export default function StudentScreen() {
               border: kart.dogruMu
                 ? "3px solid #22c55e"
                 : "3px solid #ef4444",
-              animation: kart.dogruMu ? "pop 0.4s ease" : "shake 0.4s ease",
             };
           }
 
@@ -224,32 +229,13 @@ export default function StudentScreen() {
           );
         })}
       </div>
-
-      {/* ANİMASYON KEYFRAMES */}
-      <style>
-        {`
-        @keyframes pop {
-          0% { transform: scale(0.9); }
-          60% { transform: scale(1.1); }
-          100% { transform: scale(1); }
-        }
-
-        @keyframes shake {
-          0% { transform: translateX(0px); }
-          25% { transform: translateX(-6px); }
-          50% { transform: translateX(6px); }
-          75% { transform: translateX(-6px); }
-          100% { transform: translateX(0px); }
-        }
-      `}
-      </style>
     </div>
   );
 }
 
-// =====================================================
-// STYLES
-// =====================================================
+/* ============================
+   STYLES
+============================ */
 
 const kapsayici = {
   padding: 20,
@@ -263,11 +249,7 @@ const kapsayici = {
   borderRadius: 20,
 };
 
-const baslik = {
-  fontSize: "1.8rem",
-  fontWeight: 800,
-  color: "#8B3FFC",
-};
+const baslik = { fontSize: "1.8rem", fontWeight: 800, color: "#8B3FFC" };
 
 const kuralBox = {
   background: "#ffffffaa",
@@ -294,7 +276,7 @@ const progressBarFill = {
   transition: "width 0.4s linear",
 };
 
-const sayaç = {
+const sayac = {
   fontSize: "1.4rem",
   fontWeight: 700,
   color: "#7e22ce",
@@ -302,16 +284,8 @@ const sayaç = {
   marginBottom: 12,
 };
 
-const kalpKutu = {
-  textAlign: "center",
-  marginBottom: 12,
-};
-
-const kalp = {
-  fontSize: "2rem",
-  filter: "drop-shadow(0 0 4px red)",
-  marginRight: 4,
-};
+const kalpKutu = { textAlign: "center", marginBottom: 12 };
+const kalp = { fontSize: "2rem", filter: "drop-shadow(0 0 4px red)", marginRight: 4 };
 
 const hakText = {
   marginBottom: 20,
@@ -339,12 +313,7 @@ const kartKutu = {
   userSelect: "none",
 };
 
-// --- Giriş ekranı ---
-const girisKapsayici = {
-  padding: "40px",
-  textAlign: "center",
-};
-
+const girisKapsayici = { padding: "40px", textAlign: "center" };
 const input = {
   width: "250px",
   padding: "12px",
@@ -352,9 +321,7 @@ const input = {
   border: "2px solid #e2e2ff",
   margin: "8px",
   fontSize: "1rem",
-  background: "#ffffffcc",
 };
-
 const buton = {
   padding: "12px 18px",
   background: "linear-gradient(135deg, #8b5cf6, #ec4899)",
@@ -365,11 +332,5 @@ const buton = {
   marginTop: "18px",
   fontWeight: 700,
   width: "200px",
-  boxShadow: "0 6px 14px rgba(0,0,0,0.2)",
 };
-
-const beklemeEkrani = {
-  padding: "40px",
-  textAlign: "center",
-  fontSize: "1.2rem",
-};
+const beklemeEkrani = { padding: "40px", textAlign: "center", fontSize: "1.2rem" };

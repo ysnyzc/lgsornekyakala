@@ -1,0 +1,1019 @@
+<!doctype html>
+<html lang="tr">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LGS Mini Oyunlar</title>
+  <script src="/_sdk/element_sdk.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    .container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    /* Oyun Seçim Ekranı */
+    .game-select-screen {
+      text-align: center;
+      animation: fadeIn 0.5s ease;
+    }
+
+    .main-title {
+      font-size: 48px;
+      font-weight: 800;
+      color: white;
+      margin-bottom: 10px;
+      text-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+
+    .subtitle {
+      font-size: 18px;
+      color: rgba(255,255,255,0.9);
+      margin-bottom: 40px;
+    }
+
+    .game-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 30px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .game-card {
+      background: white;
+      border-radius: 20px;
+      padding: 40px 30px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    .game-card:hover {
+      transform: translateY(-10px) scale(1.05);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    }
+
+    .game-icon {
+      font-size: 72px;
+      margin-bottom: 20px;
+    }
+
+    .game-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    .game-desc {
+      font-size: 14px;
+      color: #666;
+      line-height: 1.5;
+    }
+
+    /* Oyun Ekranı Ortak Stiller */
+    .game-screen {
+      width: 100%;
+      height: 100%;
+      display: none;
+      flex-direction: column;
+      animation: fadeIn 0.5s ease;
+    }
+
+    .game-screen.active {
+      display: flex;
+    }
+
+    .game-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      background: rgba(255,255,255,0.95);
+      border-radius: 15px;
+      margin-bottom: 20px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    }
+
+    .back-btn {
+      background: #ff6b6b;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .back-btn:hover {
+      background: #ee5a52;
+      transform: scale(1.05);
+    }
+
+    .score-display {
+      font-size: 28px;
+      font-weight: 800;
+      color: #667eea;
+    }
+
+    .game-area {
+      flex: 1;
+      background: rgba(255,255,255,0.95);
+      border-radius: 15px;
+      padding: 30px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    }
+
+    /* Hızlı Karar Oyunu */
+    .quick-decision-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 30px;
+    }
+
+    .question-card {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border-radius: 20px;
+      padding: 40px;
+      width: 100%;
+      max-width: 600px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      animation: slideIn 0.4s ease;
+    }
+
+    .question-text {
+      font-size: 28px;
+      font-weight: 700;
+      color: white;
+      margin-bottom: 15px;
+      line-height: 1.4;
+    }
+
+    .example-word {
+      font-size: 36px;
+      font-weight: 900;
+      color: #fbbf24;
+      margin: 20px 0;
+      text-shadow: 0 3px 10px rgba(0,0,0,0.3);
+    }
+
+    .timer-bar {
+      width: 100%;
+      height: 8px;
+      background: rgba(255,255,255,0.3);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 20px;
+    }
+
+    .timer-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4ade80, #22c55e);
+      transition: width 0.1s linear;
+      border-radius: 10px;
+    }
+
+    .answer-buttons {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      width: 100%;
+      max-width: 600px;
+    }
+
+    .answer-btn {
+      background: white;
+      border: 4px solid #667eea;
+      border-radius: 15px;
+      padding: 30px 20px;
+      font-size: 24px;
+      font-weight: 700;
+      color: #333;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    }
+
+    .answer-btn:hover {
+      transform: translateY(-5px) scale(1.05);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      background: #f0f4ff;
+    }
+
+    .answer-btn:active {
+      transform: translateY(-2px) scale(1.02);
+    }
+
+    .answer-btn.correct {
+      background: #4ade80;
+      border-color: #22c55e;
+      color: white;
+      animation: correctPulse 0.5s ease;
+    }
+
+    .answer-btn.wrong {
+      background: #ef4444;
+      border-color: #dc2626;
+      color: white;
+      animation: wrongShake 0.5s ease;
+    }
+
+    .combo-display {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      color: white;
+      padding: 15px 25px;
+      border-radius: 15px;
+      font-size: 20px;
+      font-weight: 800;
+      box-shadow: 0 5px 20px rgba(251, 191, 36, 0.4);
+      animation: pulse 2s infinite;
+    }
+
+    /* Hafıza Kartları */
+    .memory-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .memory-card {
+      aspect-ratio: 1;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border-radius: 15px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 700;
+      color: white;
+      transition: all 0.3s ease;
+      position: relative;
+      transform-style: preserve-3d;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+
+    .memory-card.flipped {
+      background: white;
+      color: #333;
+      border: 3px solid #667eea;
+    }
+
+    .memory-card.matched {
+      background: linear-gradient(135deg, #4ade80, #22c55e);
+      color: white;
+      cursor: default;
+      transform: scale(0.9);
+    }
+
+    .memory-card:not(.flipped):not(.matched):hover {
+      transform: scale(1.05);
+    }
+
+    /* Balon Patlatma */
+    .balloon-container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    .balloon {
+      position: absolute;
+      width: 80px;
+      height: 100px;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+      animation: floatUp 3s linear;
+    }
+
+    .balloon:hover {
+      transform: scale(1.1);
+    }
+
+    .balloon-body {
+      width: 80px;
+      height: 100px;
+      border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+      position: relative;
+      box-shadow: inset -10px -10px 20px rgba(0,0,0,0.1), 0 5px 20px rgba(0,0,0,0.2);
+    }
+
+    .balloon-string {
+      position: absolute;
+      bottom: -30px;
+      left: 50%;
+      width: 2px;
+      height: 30px;
+      background: #333;
+    }
+
+    @keyframes floatUp {
+      from {
+        bottom: -120px;
+        opacity: 1;
+      }
+      to {
+        bottom: 110%;
+        opacity: 0;
+      }
+    }
+
+    .particle {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      pointer-events: none;
+      animation: explode 0.6s ease-out forwards;
+    }
+
+    @keyframes explode {
+      to {
+        transform: translate(var(--tx), var(--ty)) scale(0);
+        opacity: 0;
+      }
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: scale(0.9);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes correctPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+
+    @keyframes wrongShake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-10px); }
+      75% { transform: translateX(10px); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    @media (max-width: 768px) {
+      .main-title {
+        font-size: 32px;
+      }
+
+      .game-cards {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+
+      .memory-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+      }
+
+      .question-text {
+        font-size: 20px;
+      }
+
+      .example-word {
+        font-size: 28px;
+      }
+
+      .answer-buttons {
+        grid-template-columns: 1fr;
+      }
+
+      .answer-btn {
+        font-size: 20px;
+        padding: 20px;
+      }
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+  <script src="https://cdn.tailwindcss.com" type="text/javascript"></script>
+ </head>
+ <body>
+  <div class="container"><!-- Oyun Seçim Ekranı -->
+   <div class="game-select-screen" id="selectScreen">
+    <h1 class="main-title" id="mainTitle">🎮 Mini Oyunlar</h1>
+    <p class="subtitle" id="subtitle">Öğretmen kuralı başlatana kadar oynayabilirsin!</p>
+    <div class="game-cards">
+     <div class="game-card" onclick="startGame('quickDecision')">
+      <div class="game-icon">
+       ⚡
+      </div>
+      <div class="game-title" id="game1Title">
+       Hızlı Karar
+      </div>
+      <p class="game-desc">Soruları hızlıca cevapla, puan kazan!</p>
+     </div>
+     <div class="game-card" onclick="startGame('memory')">
+      <div class="game-icon">
+       🃏
+      </div>
+      <div class="game-title" id="game2Title">
+       Hafıza Kartları
+      </div>
+      <p class="game-desc">Eşleşen kelime çiftlerini bul!</p>
+     </div>
+     <div class="game-card" onclick="startGame('balloon')">
+      <div class="game-icon">
+       🎈
+      </div>
+      <div class="game-title" id="game3Title">
+       Balon Patlatma
+      </div>
+      <p class="game-desc">Uçan balonları patlat ve puan kazan!</p>
+     </div>
+    </div>
+   </div><!-- Hızlı Karar Oyunu -->
+   <div class="game-screen" id="quickDecisionScreen">
+    <div class="game-header"><button class="back-btn" onclick="backToMenu()">← Geri</button>
+     <div class="score-display">
+      Skor: <span id="quickScore">0</span>
+     </div>
+    </div>
+    <div class="game-area">
+     <div class="quick-decision-container" id="quickContainer">
+      <div class="combo-display" id="comboDisplay" style="display: none;">
+       🔥 Combo x<span id="comboCount">0</span>
+      </div>
+      <div class="question-card" id="questionCard">
+       <div class="question-text" id="questionText">
+        Hazırlanıyor...
+       </div>
+       <div class="example-word" id="exampleWord">
+        🎯
+       </div>
+       <div class="timer-bar">
+        <div class="timer-fill" id="timerFill" style="width: 100%;"></div>
+       </div>
+      </div>
+      <div class="answer-buttons" id="answerButtons"></div>
+     </div>
+    </div>
+   </div><!-- Hafıza Kartları Oyunu -->
+   <div class="game-screen" id="memoryScreen">
+    <div class="game-header"><button class="back-btn" onclick="backToMenu()">← Geri</button>
+     <div class="score-display">
+      Eşleşme: <span id="memoryScore">0</span>/8
+     </div>
+    </div>
+    <div class="game-area">
+     <div class="memory-grid" id="memoryGrid"></div>
+    </div>
+   </div><!-- Balon Patlatma Oyunu -->
+   <div class="game-screen" id="balloonScreen">
+    <div class="game-header"><button class="back-btn" onclick="backToMenu()">← Geri</button>
+     <div class="score-display">
+      Skor: <span id="balloonScore">0</span>
+     </div>
+    </div>
+    <div class="game-area">
+     <div class="balloon-container" id="balloonContainer"></div>
+    </div>
+   </div>
+  </div>
+  <script>
+    // Config yönetimi
+    const defaultConfig = {
+      main_title: "🎮 Mini Oyunlar",
+      subtitle: "Öğretmen kuralı başlatana kadar oynayabilirsin!",
+      game1_title: "Hızlı Karar",
+      game2_title: "Hafıza Kartları",
+      game3_title: "Balon Patlatma",
+      background_color: "#667eea",
+      surface_color: "#ffffff",
+      text_color: "#333333",
+      primary_action_color: "#667eea",
+      secondary_action_color: "#ff6b6b"
+    };
+
+    let currentGame = null;
+    let gameIntervals = [];
+
+    // Ses efektleri
+    const sounds = {
+      correct: new Audio(),
+      wrong: new Audio(),
+      pop: new Audio()
+    };
+
+    sounds.correct.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYmNkZWZm5+jpqmtr7O2uby/wsPGyczP0tXY29/i5ejo6+7x9PX3+fv8/f7+/v7+/v39/Pv6+ff29PPx7+3q6OXi397b2NXSz8zJxsPC';
+    sounds.wrong.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAAB/fHl2c3BtamdjYF1aV1RRT05LSEVCPz08OTYzMC0qJyQhHhsYFRIPDAkGAwEAAQMGCQwPEhUYGx4hJCcqLS8yNTg7Pj9CRUVISFBQVFVYWF';
+    sounds.pop.src = sounds.correct.src;
+
+    // Hızlı Karar Soruları
+    const quickQuestions = [
+      {
+        question: "Bu kelime FİİL mi?",
+        word: "Koşmak",
+        answers: ["Evet", "Hayır"],
+        correct: 0
+      },
+      {
+        question: "Bu kelime İSİM mi?",
+        word: "Masa",
+        answers: ["Evet", "Hayır"],
+        correct: 0
+      },
+      {
+        question: "Bu kelime SIFAT mı?",
+        word: "Güzel",
+        answers: ["Evet", "Hayır"],
+        correct: 0
+      },
+      {
+        question: "Bu kelime FİİL mi?",
+        word: "Kitap",
+        answers: ["Evet", "Hayır"],
+        correct: 1
+      },
+      {
+        question: "Bu kelime ZARF mı?",
+        word: "Hızlıca",
+        answers: ["Evet", "Hayır"],
+        correct: 0
+      },
+      {
+        question: "Bu kelime İSİM mi?",
+        word: "Yürümek",
+        answers: ["Evet", "Hayır"],
+        correct: 1
+      },
+      {
+        question: "Cümlede ÖZNE var mı?",
+        word: "Yağmur yağıyor.",
+        answers: ["Var", "Yok"],
+        correct: 0
+      },
+      {
+        question: "Bu FİİLİMSİ mi?",
+        word: "Yazarak",
+        answers: ["Evet", "Hayır"],
+        correct: 0
+      },
+      {
+        question: "Bu kelime EDAT mı?",
+        word: "İçin",
+        answers: ["Evet", "Hayır"],
+        correct: 0
+      },
+      {
+        question: "Bu kelime ZAMİR mi?",
+        word: "Ben",
+        answers: ["Evet", "Hayır"],
+        correct: 0
+      },
+      {
+        question: "Bu BAĞLAÇ mı?",
+        word: "Ve",
+        answers: ["Evet", "Hayır"],
+        correct: 0
+      },
+      {
+        question: "Bu kelime SIFAT mı?",
+        word: "Hızlı",
+        answers: ["Evet", "Hayır"],
+        correct: 0
+      }
+    ];
+
+    // Hafıza Kartları verileri
+    const memoryPairs = [
+      { id: 1, text: "İsim" },
+      { id: 1, text: "Varlık" },
+      { id: 2, text: "Fiil" },
+      { id: 2, text: "İş/Hareket" },
+      { id: 3, text: "Sıfat" },
+      { id: 3, text: "Nitelik" },
+      { id: 4, text: "Zarf" },
+      { id: 4, text: "Belirteç" },
+      { id: 5, text: "Edat" },
+      { id: 5, text: "İlgeç" },
+      { id: 6, text: "Zamir" },
+      { id: 6, text: "Adıl" },
+      { id: 7, text: "Bağlaç" },
+      { id: 7, text: "Birleştirici" },
+      { id: 8, text: "Ünlem" },
+      { id: 8, text: "Duygu" }
+    ];
+
+    // Oyun başlatma
+    function startGame(gameType) {
+      document.getElementById('selectScreen').style.display = 'none';
+      currentGame = gameType;
+
+      if (gameType === 'quickDecision') {
+        document.getElementById('quickDecisionScreen').classList.add('active');
+        startQuickDecision();
+      } else if (gameType === 'memory') {
+        document.getElementById('memoryScreen').classList.add('active');
+        startMemory();
+      } else if (gameType === 'balloon') {
+        document.getElementById('balloonScreen').classList.add('active');
+        startBalloon();
+      }
+    }
+
+    // Menüye dön
+    function backToMenu() {
+      // Tüm oyunları durdur
+      gameIntervals.forEach(interval => clearInterval(interval));
+      gameIntervals = [];
+
+      // Ekranları gizle
+      document.querySelectorAll('.game-screen').forEach(screen => {
+        screen.classList.remove('active');
+      });
+
+      // Oyun alanlarını temizle
+      document.getElementById('quickContainer').innerHTML = `
+        <div class="combo-display" id="comboDisplay" style="display: none;">
+          🔥 Combo x<span id="comboCount">0</span>
+        </div>
+        <div class="question-card" id="questionCard">
+          <div class="question-text" id="questionText">Hazırlanıyor...</div>
+          <div class="example-word" id="exampleWord">🎯</div>
+          <div class="timer-bar">
+            <div class="timer-fill" id="timerFill" style="width: 100%;"></div>
+          </div>
+        </div>
+        <div class="answer-buttons" id="answerButtons"></div>
+      `;
+      document.getElementById('memoryGrid').innerHTML = '';
+      document.getElementById('balloonContainer').innerHTML = '';
+
+      // Skorları sıfırla
+      document.getElementById('quickScore').textContent = '0';
+      document.getElementById('memoryScore').textContent = '0/8';
+      document.getElementById('balloonScore').textContent = '0';
+
+      // Menüyü göster
+      document.getElementById('selectScreen').style.display = 'block';
+      currentGame = null;
+    }
+
+    // 1. HIZLI KARAR OYUNU
+    function startQuickDecision() {
+      let score = 0;
+      let combo = 0;
+      let currentQuestion = null;
+      let timeLeft = 100;
+      let timerInterval = null;
+      let isAnswering = false;
+
+      const scoreDisplay = document.getElementById('quickScore');
+      const questionText = document.getElementById('questionText');
+      const exampleWord = document.getElementById('exampleWord');
+      const answerButtons = document.getElementById('answerButtons');
+      const timerFill = document.getElementById('timerFill');
+      const comboDisplay = document.getElementById('comboDisplay');
+      const comboCount = document.getElementById('comboCount');
+
+      function loadQuestion() {
+        isAnswering = false;
+        currentQuestion = quickQuestions[Math.floor(Math.random() * quickQuestions.length)];
+        questionText.textContent = currentQuestion.question;
+        exampleWord.textContent = currentQuestion.word;
+        
+        answerButtons.innerHTML = '';
+        currentQuestion.answers.forEach((answer, index) => {
+          const btn = document.createElement('button');
+          btn.className = 'answer-btn';
+          btn.textContent = answer;
+          btn.onclick = () => checkAnswer(index, btn);
+          answerButtons.appendChild(btn);
+        });
+
+        timeLeft = 100;
+        timerFill.style.width = '100%';
+        
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+          timeLeft -= 2;
+          timerFill.style.width = timeLeft + '%';
+          
+          if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            if (!isAnswering) {
+              combo = 0;
+              updateCombo();
+              setTimeout(loadQuestion, 1000);
+            }
+          }
+        }, 100);
+
+        gameIntervals.push(timerInterval);
+      }
+
+      function checkAnswer(selectedIndex, btn) {
+        if (isAnswering) return;
+        isAnswering = true;
+
+        clearInterval(timerInterval);
+
+        const allButtons = answerButtons.querySelectorAll('.answer-btn');
+        allButtons.forEach(b => b.style.pointerEvents = 'none');
+
+        if (selectedIndex === currentQuestion.correct) {
+          btn.classList.add('correct');
+          combo++;
+          const points = 10 + (combo > 1 ? (combo - 1) * 5 : 0);
+          score += points;
+          scoreDisplay.textContent = score;
+          sounds.correct.currentTime = 0;
+          sounds.correct.play().catch(() => {});
+          updateCombo();
+          createParticles(btn.getBoundingClientRect().left + btn.offsetWidth / 2, btn.getBoundingClientRect().top + btn.offsetHeight / 2, '#4ade80');
+        } else {
+          btn.classList.add('wrong');
+          combo = 0;
+          updateCombo();
+          sounds.wrong.currentTime = 0;
+          sounds.wrong.play().catch(() => {});
+          createParticles(btn.getBoundingClientRect().left + btn.offsetWidth / 2, btn.getBoundingClientRect().top + btn.offsetHeight / 2, '#ef4444');
+          
+          allButtons[currentQuestion.correct].classList.add('correct');
+        }
+
+        setTimeout(() => {
+          loadQuestion();
+        }, 1500);
+      }
+
+      function updateCombo() {
+        if (combo > 1) {
+          comboDisplay.style.display = 'block';
+          comboCount.textContent = combo;
+        } else {
+          comboDisplay.style.display = 'none';
+        }
+      }
+
+      loadQuestion();
+    }
+
+    // 2. HAFIZA KARTLARI
+    function startMemory() {
+      let flippedCards = [];
+      let matchedPairs = 0;
+      const grid = document.getElementById('memoryGrid');
+      const scoreDisplay = document.getElementById('memoryScore');
+
+      const shuffled = [...memoryPairs].sort(() => Math.random() - 0.5);
+
+      shuffled.forEach((card, index) => {
+        const cardEl = document.createElement('div');
+        cardEl.className = 'memory-card';
+        cardEl.textContent = '?';
+        cardEl.dataset.id = card.id;
+        cardEl.dataset.text = card.text;
+        cardEl.dataset.index = index;
+
+        cardEl.onclick = function() {
+          if (cardEl.classList.contains('flipped') || cardEl.classList.contains('matched') || flippedCards.length >= 2) {
+            return;
+          }
+
+          cardEl.classList.add('flipped');
+          cardEl.textContent = card.text;
+          flippedCards.push(cardEl);
+
+          if (flippedCards.length === 2) {
+            const [card1, card2] = flippedCards;
+
+            if (card1.dataset.id === card2.dataset.id) {
+              setTimeout(() => {
+                card1.classList.add('matched');
+                card2.classList.add('matched');
+                matchedPairs++;
+                scoreDisplay.textContent = `${matchedPairs}/8`;
+                sounds.correct.currentTime = 0;
+                sounds.correct.play().catch(() => {});
+                flippedCards = [];
+
+                if (matchedPairs === 8) {
+                  setTimeout(() => {
+                    const celebration = document.createElement('div');
+                    celebration.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:48px;font-weight:800;color:#4ade80;text-shadow:0 5px 20px rgba(0,0,0,0.3);z-index:1000;';
+                    celebration.textContent = '🎉 TEBRİKLER! 🎉';
+                    grid.parentElement.appendChild(celebration);
+                  }, 500);
+                }
+              }, 500);
+            } else {
+              setTimeout(() => {
+                card1.classList.remove('flipped');
+                card2.classList.remove('flipped');
+                card1.textContent = '?';
+                card2.textContent = '?';
+                sounds.wrong.currentTime = 0;
+                sounds.wrong.play().catch(() => {});
+                flippedCards = [];
+              }, 1000);
+            }
+          }
+        };
+
+        grid.appendChild(cardEl);
+      });
+    }
+
+    // 3. BALON PATLATMA
+    function startBalloon() {
+      let score = 0;
+      const container = document.getElementById('balloonContainer');
+      const scoreDisplay = document.getElementById('balloonScore');
+      const colors = ['#ff6b6b', '#4ade80', '#fbbf24', '#60a5fa', '#a78bfa', '#f472b6'];
+
+      function createBalloon() {
+        const balloon = document.createElement('div');
+        balloon.className = 'balloon';
+        balloon.style.left = Math.random() * (container.offsetWidth - 80) + 'px';
+
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        balloon.innerHTML = `
+          <div class="balloon-body" style="background: linear-gradient(135deg, ${color}, ${color}dd);"></div>
+          <div class="balloon-string"></div>
+        `;
+
+        balloon.onclick = function() {
+          const rect = balloon.getBoundingClientRect();
+          score += 5;
+          scoreDisplay.textContent = score;
+          sounds.pop.currentTime = 0;
+          sounds.pop.play().catch(() => {});
+          createParticles(rect.left + rect.width / 2, rect.top + rect.height / 2, color);
+          balloon.remove();
+        };
+
+        container.appendChild(balloon);
+
+        setTimeout(() => {
+          if (balloon.parentElement) {
+            balloon.remove();
+          }
+        }, 3000);
+      }
+
+      const spawnInterval = setInterval(createBalloon, 1000);
+      gameIntervals.push(spawnInterval);
+      createBalloon();
+    }
+
+    // Parçacık efekti
+    function createParticles(x, y, color) {
+      const container = document.querySelector('.container');
+      for (let i = 0; i < 8; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.style.left = x + 'px';
+        particle.style.top = y + 'px';
+        particle.style.background = color;
+
+        const angle = (Math.PI * 2 * i) / 8;
+        const distance = 50 + Math.random() * 50;
+        particle.style.setProperty('--tx', Math.cos(angle) * distance + 'px');
+        particle.style.setProperty('--ty', Math.sin(angle) * distance + 'px');
+
+        container.appendChild(particle);
+
+        setTimeout(() => particle.remove(), 600);
+      }
+    }
+
+    // Element SDK Entegrasyonu
+    async function onConfigChange(config) {
+      document.getElementById('mainTitle').textContent = config.main_title || defaultConfig.main_title;
+      document.getElementById('subtitle').textContent = config.subtitle || defaultConfig.subtitle;
+      document.getElementById('game1Title').textContent = config.game1_title || defaultConfig.game1_title;
+      document.getElementById('game2Title').textContent = config.game2_title || defaultConfig.game2_title;
+      document.getElementById('game3Title').textContent = config.game3_title || defaultConfig.game3_title;
+
+      const bgColor = config.background_color || defaultConfig.background_color;
+      document.body.style.background = `linear-gradient(135deg, ${bgColor} 0%, ${adjustBrightness(bgColor, -20)} 100%)`;
+    }
+
+    function adjustBrightness(hex, percent) {
+      const num = parseInt(hex.replace('#', ''), 16);
+      const r = Math.max(0, Math.min(255, (num >> 16) + percent));
+      const g = Math.max(0, Math.min(255, ((num >> 8) & 0x00FF) + percent));
+      const b = Math.max(0, Math.min(255, (num & 0x0000FF) + percent));
+      return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
+    }
+
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange,
+        mapToCapabilities: (config) => ({
+          recolorables: [
+            {
+              get: () => config.background_color || defaultConfig.background_color,
+              set: (value) => {
+                window.elementSdk.config.background_color = value;
+                window.elementSdk.setConfig({ background_color: value });
+              }
+            },
+            {
+              get: () => config.surface_color || defaultConfig.surface_color,
+              set: (value) => {
+                window.elementSdk.config.surface_color = value;
+                window.elementSdk.setConfig({ surface_color: value });
+              }
+            },
+            {
+              get: () => config.text_color || defaultConfig.text_color,
+              set: (value) => {
+                window.elementSdk.config.text_color = value;
+                window.elementSdk.setConfig({ text_color: value });
+              }
+            },
+            {
+              get: () => config.primary_action_color || defaultConfig.primary_action_color,
+              set: (value) => {
+                window.elementSdk.config.primary_action_color = value;
+                window.elementSdk.setConfig({ primary_action_color: value });
+              }
+            },
+            {
+              get: () => config.secondary_action_color || defaultConfig.secondary_action_color,
+              set: (value) => {
+                window.elementSdk.config.secondary_action_color = value;
+                window.elementSdk.setConfig({ secondary_action_color: value });
+              }
+            }
+          ],
+          borderables: [],
+          fontEditable: undefined,
+          fontSizeable: undefined
+        }),
+        mapToEditPanelValues: (config) => new Map([
+          ["main_title", config.main_title || defaultConfig.main_title],
+          ["subtitle", config.subtitle || defaultConfig.subtitle],
+          ["game1_title", config.game1_title || defaultConfig.game1_title],
+          ["game2_title", config.game2_title || defaultConfig.game2_title],
+          ["game3_title", config.game3_title || defaultConfig.game3_title]
+        ])
+      });
+
+      onConfigChange(window.elementSdk.config);
+    }
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9a513dfd922aa3f7',t:'MTc2NDI0MjQ4OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
